@@ -1,10 +1,8 @@
 package fi.hsl.transitlog.hfp;
 
 import com.typesafe.config.Config;
-import fi.hsl.common.hfp.HfpData;
+import fi.hsl.common.hfp.HfpJson;
 import fi.hsl.common.hfp.HfpParser;
-import fi.hsl.common.hfp.HfpPayload;
-import fi.hsl.common.hfp.HfpTopic;
 import fi.hsl.common.hfp.proto.Hfp;
 import fi.hsl.common.mqtt.proto.Mqtt;
 import fi.hsl.common.pulsar.IMessageHandler;
@@ -80,11 +78,15 @@ public class MessageHandler implements IMessageHandler {
         final String rawTopic = raw.getTopic();
         final byte[] rawPayload = raw.getPayload().toByteArray();
 
-        final HfpPayload payload = parser.parse(rawPayload);
-        final Optional<HfpTopic> maybeTopic = HfpParser.parseTopic(rawTopic, timestamp);
+        final HfpJson jsonPayload = parser.parseJson(rawPayload);
+        Hfp.Payload payload = HfpParser.parsePayload(jsonPayload);
+        Hfp.Topic topic = HfpParser.parseTopic(rawTopic, timestamp);
 
-        //TODO
-        return null;
+        Hfp.Data.Builder builder = Hfp.Data.newBuilder();
+        builder.setSchemaVersion(builder.getSchemaVersion())
+                .setPayload(payload)
+                .setTopic(topic);
+        return builder.build();
     }
 
     private void sendPulsarMessage(MessageId received, Hfp.Data hfp, long timestamp) {
