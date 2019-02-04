@@ -1,4 +1,4 @@
-package fi.hsl.transitlog.hfp;
+package fi.hsl.transitdata.hfp;
 
 import com.typesafe.config.Config;
 import fi.hsl.common.hfp.HfpJson;

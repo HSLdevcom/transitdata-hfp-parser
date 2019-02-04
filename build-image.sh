@@ -1,2 +1,2 @@
 #!/bin/bash
-docker build -t hsldevcom/transitlog-hfp-parser .
+docker build -t hsldevcom/transitdata-hfp-parser .

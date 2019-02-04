@@ -1,7 +1,7 @@
 <project>
     <modelVersion>4.0.0</modelVersion>
-    <groupId>fi.hsl.transitlog</groupId>
-    <artifactId>transitlog-hfp-parser</artifactId>
+    <groupId>fi.hsl.transitdata</groupId>
+    <artifactId>transitdata-hfp-parser</artifactId>
     <version>0.1.0</version>
     <packaging>jar</packaging>
 
@@ -38,7 +38,7 @@
     </dependencies>
 
     <build>
-        <finalName>transitlog-hfp-parser</finalName>
+        <finalName>transitdata-hfp-parser</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
@@ -61,7 +61,7 @@
                             <archiveBaseDirectory>${project.basedir}</archiveBaseDirectory>
                             <archive>
                                 <manifest>
-                                    <mainClass>fi.hsl.transitlog.hfp.Main</mainClass>
+                                    <mainClass>fi.hsl.transitdata.hfp.Main</mainClass>
                                 </manifest>
                             </archive>
                             <descriptorRefs>

@@ -1,6 +1,6 @@
-[![Build Status](https://travis-ci.org/HSLdevcom/transitlog-hfp-parser.svg?branch=master)](https://travis-ci.org/HSLdevcom/transitlog-hfp-parser)
+[![Build Status](https://travis-ci.org/HSLdevcom/transitdata-hfp-parser.svg?branch=master)](https://travis-ci.org/HSLdevcom/transitdata-hfp-parser)
 
-# Transitlog-hfp-parser
+# Transitdata-hfp-parser
 
 ## Description
 
