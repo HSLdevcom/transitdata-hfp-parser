@@ -1,6 +1,5 @@
 package fi.hsl.transitdata.hfp;
 
-import com.typesafe.config.Config;
 import fi.hsl.common.hfp.HfpJson;
 import fi.hsl.common.hfp.HfpParser;
 import fi.hsl.common.hfp.proto.Hfp;
@@ -22,21 +21,17 @@ public class MessageHandler implements IMessageHandler {
 
     private Consumer<byte[]> consumer;
     private Producer<byte[]> producer;
-    private Config config;
 
     private final HfpParser parser = HfpParser.newInstance();
 
     public MessageHandler(PulsarApplicationContext context) {
         consumer = context.getConsumer();
         producer = context.getProducer();
-        this.config = context.getConfig();
     }
 
     public void handleMessage(Message received) throws Exception {
         try {
-            Optional<TransitdataSchema> maybeSchema = TransitdataSchema.parseFromPulsarMessage(received);
-
-            if (maybeSchema.isPresent() && maybeSchema.get().schema == ProtobufSchema.MqttRawMessage) {
+            if (TransitdataSchema.hasProtobufSchema(received, ProtobufSchema.MqttRawMessage)) {
                 final long timestamp = received.getEventTime();
                 byte[] data = received.getData();
 
