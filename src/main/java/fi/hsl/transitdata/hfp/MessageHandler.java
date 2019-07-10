@@ -13,8 +13,6 @@ import org.apache.pulsar.client.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
-
 
 public class MessageHandler implements IMessageHandler {
     private static final Logger log = LoggerFactory.getLogger(MessageHandler.class);
@@ -74,7 +72,6 @@ public class MessageHandler implements IMessageHandler {
     }
 
     private void sendPulsarMessage(MessageId received, Hfp.Data hfp, long timestamp) {
-
         producer.newMessage()
                 //.key(dvjId) //TODO think about this
                 .eventTime(timestamp)
