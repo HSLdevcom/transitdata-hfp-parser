@@ -1,5 +1,6 @@
 package fi.hsl.transitdata.hfp;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import fi.hsl.common.hfp.HfpJson;
 import fi.hsl.common.hfp.HfpParser;
 import fi.hsl.common.hfp.proto.Hfp;
@@ -12,6 +13,8 @@ import fi.hsl.common.transitdata.TransitdataSchema;
 import org.apache.pulsar.client.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 
 
 public class MessageHandler implements IMessageHandler {
@@ -27,7 +30,7 @@ public class MessageHandler implements IMessageHandler {
         producer = context.getProducer();
     }
 
-    public void handleMessage(Message received) throws Exception {
+    public void handleMessage(Message received) {
         try {
             if (TransitdataSchema.hasProtobufSchema(received, ProtobufSchema.MqttRawMessage)) {
                 final long timestamp = received.getEventTime();
@@ -40,8 +43,11 @@ public class MessageHandler implements IMessageHandler {
                 log.warn("Received unexpected schema, ignoring.");
                 ack(received.getMessageId()); //Ack so we don't receive it again
             }
-        }
-        catch (Exception e) {
+        } catch (HfpParser.InvalidHfpTopicException | HfpParser.InvalidHfpPayloadException invalidHfpException) {
+            log.warn("Failed to parse HFP data", invalidHfpException);
+            //Ack messages with invalid data so they don't fill Pulsar backlog
+            ack(received.getMessageId());
+        } catch (Exception e) {
             log.error("Exception while handling message", e);
         }
     }
@@ -55,7 +61,7 @@ public class MessageHandler implements IMessageHandler {
                 .thenRun(() -> {});
     }
 
-    Hfp.Data parseData(byte[] data, long timestamp) throws Exception {
+    Hfp.Data parseData(byte[] data, long timestamp) throws IOException, HfpParser.InvalidHfpPayloadException, HfpParser.InvalidHfpTopicException {
         final Mqtt.RawMessage raw = Mqtt.RawMessage.parseFrom(data);
         final String rawTopic = raw.getTopic();
         final byte[] rawPayload = raw.getPayload().toByteArray();
