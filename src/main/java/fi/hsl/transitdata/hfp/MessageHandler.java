@@ -20,32 +20,24 @@ import java.io.IOException;
 public class MessageHandler implements IMessageHandler {
     private static final Logger log = LoggerFactory.getLogger(MessageHandler.class);
 
-    private final Consumer<byte[]> consumer;
-    private final Producer<byte[]> hfpProducer;
-    private final Producer<byte[]> passengerCountProducer;
+    private Consumer<byte[]> consumer;
+    private Producer<byte[]> producer;
 
-    private static final String PASSENGER_COUNT_MQTT_TOPIC = "";
     private final HfpParser parser = HfpParser.newInstance();
 
     public MessageHandler(PulsarApplicationContext context) {
         consumer = context.getConsumer();
-        hfpProducer = context.getProducers().get("hfp-data");
-        passengerCountProducer = context.getProducers().get("passenger-count");
+        producer = context.getProducer();
     }
 
     public void handleMessage(Message received) {
         try {
             if (TransitdataSchema.hasProtobufSchema(received, ProtobufSchema.MqttRawMessage)) {
                 final long timestamp = received.getEventTime();
-                if(PASSENGER_COUNT_MQTT_TOPIC.equals(received.getTopicName())){
-                    sendPassengerCountPulsarMessage(received);
-                }
-                else{
-                    byte[] data = received.getData();
-                    Hfp.Data converted = parseData(data, timestamp);
-                    sendHfpPulsarMessage(received.getMessageId(), converted, timestamp);
-                }
+                byte[] data = received.getData();
 
+                Hfp.Data converted = parseData(data, timestamp);
+                sendPulsarMessage(received.getMessageId(), converted, timestamp);
             }
             else {
                 log.warn("Received unexpected schema, ignoring.");
@@ -85,44 +77,24 @@ public class MessageHandler implements IMessageHandler {
         return builder.build();
     }
 
+    private void sendPulsarMessage(MessageId received, Hfp.Data hfp, long timestamp) {
+        producer.newMessage()
+                //.key(dvjId) //TODO think about this
+                .eventTime(timestamp)
+                .property(TransitdataProperties.KEY_PROTOBUF_SCHEMA, ProtobufSchema.HfpData.toString())
+                .value(hfp.toByteArray())
+                .sendAsync()
+                .whenComplete((MessageId id, Throwable t) -> {
+                    if (t != null) {
+                        log.error("Failed to send Pulsar message", t);
+                        //Should we abort?
+                    }
+                    else {
+                        //Does this become a bottleneck? Does pulsar send more messages before we ack the previous one?
+                        //If yes we need to get rid of this
+                        ack(received);
+                    }
+                });
 
-    private void sendPassengerCountPulsarMessage(Message message) {
-        passengerCountProducer.newMessage()
-            //.key(message.getKey())
-            .eventTime(message.getEventTime())
-            .properties(message.getProperties())
-            .value(message.getData())
-            .sendAsync()
-            .whenComplete((o, t) -> {
-                if (t != null) {
-                    log.error("Failed to send Pulsar message", t);
-                    //Should we abort?
-                }
-                else {
-                    //Does this become a bottleneck? Does pulsar send more messages before we ack the previous one?
-                    //If yes we need to get rid of this
-                    ack(message.getMessageId());
-                }
-            });
-    }
-
-    private void sendHfpPulsarMessage(MessageId received, Hfp.Data hfp, long timestamp) {
-        hfpProducer.newMessage()
-            //.key(dvjId) //TODO think about this
-            .eventTime(timestamp)
-            .property(TransitdataProperties.KEY_PROTOBUF_SCHEMA, ProtobufSchema.HfpData.toString())
-            .value(hfp.toByteArray())
-            .sendAsync()
-            .whenComplete((MessageId id, Throwable t) -> {
-                if (t != null) {
-                    log.error("Failed to send Pulsar message", t);
-                    //Should we abort?
-                }
-                else {
-                    //Does this become a bottleneck? Does pulsar send more messages before we ack the previous one?
-                    //If yes we need to get rid of this
-                    ack(received);
-                }
-            });
     }
 }
