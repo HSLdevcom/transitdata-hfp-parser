@@ -17,7 +17,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <common.version>1.3.17</common.version>
+        <common.version>1.3.18</common.version>
     </properties>
 
     <dependencies>
@@ -25,6 +25,8 @@
             <groupId>fi.hsl</groupId>
             <artifactId>transitdata-common</artifactId>
             <version>${common.version}</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/libs/transitdata-common-1.3.18-jar-with-dependencies.jar</systemPath>
         </dependency>
 
         <dependency>
