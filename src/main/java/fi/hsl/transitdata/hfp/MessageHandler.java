@@ -29,14 +29,15 @@ public class MessageHandler implements IMessageHandler {
     private final Producer<byte[]> hfpProducer;
     private final Producer<byte[]> passengerCountProducer;
 
-    private static final String PASSENGER_COUNT_MQTT_TOPIC = "";
     private final HfpParser hfpParser = HfpParser.newInstance();
     private final PassengerCountParser passengerCountParser = PassengerCountParser.newInstance();
+    private String mqttPassengerCountTopicPrefix;
 
-    public MessageHandler(PulsarApplicationContext context) {
+    public MessageHandler(PulsarApplicationContext context, String mqttPassengerCountTopicPrefix) {
         consumer = context.getConsumer();
         hfpProducer = context.getProducers().get("hfp-data");
         passengerCountProducer = context.getProducers().get("passenger-count");
+        this.mqttPassengerCountTopicPrefix = mqttPassengerCountTopicPrefix;
     }
 
     public void handleMessage(Message received) {
@@ -44,12 +45,13 @@ public class MessageHandler implements IMessageHandler {
             if (TransitdataSchema.hasProtobufSchema(received, TransitdataProperties.ProtobufSchema.MqttRawMessage)) {
                 final long timestamp = received.getEventTime();
                 byte[] data = received.getData();
-                if(PASSENGER_COUNT_MQTT_TOPIC.equals(received.getTopicName())){
-                    PassengerCount.Data converted = parsePassengerCountData(data);
+                final Mqtt.RawMessage raw = Mqtt.RawMessage.parseFrom(data);
+                if(raw.getTopic().startsWith(mqttPassengerCountTopicPrefix)){
+                    PassengerCount.Data converted = parsePassengerCountData(raw);
                     sendPulsarMessage(received.getMessageId(), converted, timestamp, TransitdataProperties.ProtobufSchema.PassengerCount.toString(), passengerCountProducer);
                 }
                 else{
-                    Hfp.Data converted = parseHfpData(data, timestamp);
+                    Hfp.Data converted = parseHfpData(raw, timestamp);
                     sendPulsarMessage(received.getMessageId(), converted, timestamp,  TransitdataProperties.ProtobufSchema.HfpData.toString(), hfpProducer);
                 }
 
@@ -77,22 +79,21 @@ public class MessageHandler implements IMessageHandler {
     }
 
 
-    PassengerCount.Data parsePassengerCountData(byte[] data) throws IOException, PassengerCountParser.InvalidAPCPayloadException {
-        final Mqtt.RawMessage raw = Mqtt.RawMessage.parseFrom(data);
+    PassengerCount.Data parsePassengerCountData(Mqtt.RawMessage raw) throws IOException, PassengerCountParser.InvalidAPCPayloadException {
         final String rawTopic = raw.getTopic();
         final byte[] rawPayload = raw.getPayload().toByteArray();
         final APCJson apcJson = passengerCountParser.parseJson(rawPayload);
         PassengerCount.Payload payload = PassengerCountParser.newInstance().parsePayload(apcJson);
 
         PassengerCount.Data.Builder builder = PassengerCount.Data.newBuilder();
-        builder.setPayload(payload);
-        builder.setTopic(rawTopic);// Maybe we need additional logic for this
+        builder.setSchemaVersion(builder.getSchemaVersion())
+                .setPayload(payload)
+                .setTopic(rawTopic);
 
         return builder.build();
     }
 
-    Hfp.Data parseHfpData(byte[] data, long timestamp) throws IOException, HfpParser.InvalidHfpPayloadException, HfpParser.InvalidHfpTopicException {
-        final Mqtt.RawMessage raw = Mqtt.RawMessage.parseFrom(data);
+    Hfp.Data parseHfpData( Mqtt.RawMessage raw, long timestamp) throws IOException, HfpParser.InvalidHfpPayloadException, HfpParser.InvalidHfpTopicException {
         final String rawTopic = raw.getTopic();
         final byte[] rawPayload = raw.getPayload().toByteArray();
 
