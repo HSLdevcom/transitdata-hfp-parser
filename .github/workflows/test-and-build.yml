@@ -22,8 +22,8 @@ jobs:
       - name: Upload .jar file
         uses: actions/upload-artifact@v2
         with:
-          name: transitdata-hfp-duplicator.jar
-          path: target/transitdata-hfp-duplicator.jar
+          name: transitdata-hfp-parser.jar
+          path: target/transitdata-hfp-parser.jar
   build-develop-docker-image:
     needs: test
     runs-on: ubuntu-latest
@@ -34,12 +34,12 @@ jobs:
       - name: Download .jar file
         uses: actions/download-artifact@v2
         with:
-          name: transitdata-hfp-duplicator.jar
+          name: transitdata-hfp-parser.jar
           path: target
       - name: Build and publish develop Docker image
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
-          name: hsldevcom/transitdata-hfp-duplicator
+          name: hsldevcom/transitdata-hfp-parser
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           tags: develop
@@ -53,12 +53,12 @@ jobs:
       - name: Download .jar file
         uses: actions/download-artifact@v2
         with:
-          name: transitdata-hfp-duplicator.jar
+          name: transitdata-hfp-parser.jar
           path: target
       - name: Build and publish release Docker image
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
-          name: hsldevcom/transitdata-hfp-duplicator
+          name: hsldevcom/transitdata-hfp-parser
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           tag_semver: true
