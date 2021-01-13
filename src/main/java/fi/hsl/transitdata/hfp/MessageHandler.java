@@ -46,7 +46,7 @@ public class MessageHandler implements IMessageHandler {
                 final long timestamp = received.getEventTime();
                 byte[] data = received.getData();
                 final Mqtt.RawMessage raw = Mqtt.RawMessage.parseFrom(data);
-                if(raw.getTopic().startsWith(mqttPassengerCountTopicPrefix)){
+                if(raw.getTopic().contains(mqttPassengerCountTopicPrefix)){
                     PassengerCount.Data converted = parsePassengerCountData(raw);
                     sendPulsarMessage(received.getMessageId(), converted, timestamp, TransitdataProperties.ProtobufSchema.PassengerCount.toString(), passengerCountProducer);
                 }
