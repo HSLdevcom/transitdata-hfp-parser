@@ -46,24 +46,25 @@ public class MessageHandler implements IMessageHandler {
                 final long timestamp = received.getEventTime();
                 byte[] data = received.getData();
                 final Mqtt.RawMessage raw = Mqtt.RawMessage.parseFrom(data);
-                if(raw.getTopic().contains(mqttPassengerCountTopicPrefix)){
-                    PassengerCount.Data converted = parsePassengerCountData(raw);
-                    sendPulsarMessage(received.getMessageId(), converted, timestamp, TransitdataProperties.ProtobufSchema.PassengerCount.toString(), passengerCountProducer);
+                try {
+                    if (raw.getTopic().contains(mqttPassengerCountTopicPrefix)) {
+                        PassengerCount.Data converted = parsePassengerCountData(raw);
+                        sendPulsarMessage(received.getMessageId(), converted, timestamp, TransitdataProperties.ProtobufSchema.PassengerCount.toString(), passengerCountProducer);
+                    } else {
+                        Hfp.Data converted = parseHfpData(raw, timestamp);
+                        sendPulsarMessage(received.getMessageId(), converted, timestamp, TransitdataProperties.ProtobufSchema.HfpData.toString(), hfpProducer);
+                    }
                 }
-                else{
-                    Hfp.Data converted = parseHfpData(raw, timestamp);
-                    sendPulsarMessage(received.getMessageId(), converted, timestamp,  TransitdataProperties.ProtobufSchema.HfpData.toString(), hfpProducer);
+                catch (HfpParser.InvalidHfpTopicException | HfpParser.InvalidHfpPayloadException invalidHfpException) {
+                    log.warn("Failed to parse HFP data, mqtt topic " + raw.getTopic() , invalidHfpException);
+                    //Ack messages with invalid data so they don't fill Pulsar backlog
+                    ack(received.getMessageId());
                 }
-
             }
             else {
                 log.warn("Received unexpected schema, ignoring.");
                 ack(received.getMessageId()); //Ack so we don't receive it again
             }
-        } catch (HfpParser.InvalidHfpTopicException | HfpParser.InvalidHfpPayloadException invalidHfpException) {
-            log.warn("Failed to parse HFP data", invalidHfpException);
-            //Ack messages with invalid data so they don't fill Pulsar backlog
-            ack(received.getMessageId());
         } catch (Exception e) {
             log.error("Exception while handling message", e);
         }
@@ -96,7 +97,6 @@ public class MessageHandler implements IMessageHandler {
     Hfp.Data parseHfpData( Mqtt.RawMessage raw, long timestamp) throws IOException, HfpParser.InvalidHfpPayloadException, HfpParser.InvalidHfpTopicException {
         final String rawTopic = raw.getTopic();
         final byte[] rawPayload = raw.getPayload().toByteArray();
-
         final HfpJson jsonPayload = hfpParser.parseJson(rawPayload);
         Hfp.Payload payload = HfpParser.parsePayload(jsonPayload);
         Hfp.Topic topic = HfpParser.parseTopic(rawTopic, timestamp);
