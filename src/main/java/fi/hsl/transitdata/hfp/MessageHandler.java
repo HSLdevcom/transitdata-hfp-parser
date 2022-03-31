@@ -73,7 +73,7 @@ public class MessageHandler implements IMessageHandler {
             log.error("Exception while handling message", e);
 
             //Print stack trace for null pointer exceptions without message
-            if (e instanceof NullPointerException && "null".equals(e.getMessage().toLowerCase(Locale.ROOT).trim())) {
+            if (e instanceof NullPointerException && (e.getMessage() == null || "null".equals(e.getMessage().toLowerCase(Locale.ROOT).trim()))) {
                 e.printStackTrace();
             }
         }
