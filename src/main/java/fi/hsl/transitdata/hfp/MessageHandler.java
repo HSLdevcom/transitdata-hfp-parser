@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Locale;
 
 public class MessageHandler implements IMessageHandler {
     private static final Logger log = LoggerFactory.getLogger(MessageHandler.class);
@@ -70,6 +71,11 @@ public class MessageHandler implements IMessageHandler {
             }
         } catch (Exception e) {
             log.error("Exception while handling message", e);
+
+            //Print stack trace for null pointer exceptions without message
+            if (e instanceof NullPointerException && "null".equals(e.getMessage().toLowerCase(Locale.ROOT).trim())) {
+                e.printStackTrace();
+            }
         }
     }
 
