@@ -60,8 +60,8 @@ public class MessageHandler implements IMessageHandler {
                         Hfp.Data converted = parseHfpData(raw, timestamp);
                         sendPulsarMessage(received.getMessageId(), converted, timestamp, TransitdataProperties.ProtobufSchema.HfpData.toString(), producer);
                     }
-                } catch (HfpParser.InvalidHfpTopicException | HfpParser.InvalidHfpPayloadException invalidHfpException) {
-                    log.warn("Failed to parse HFP data, mqtt topic " + raw.getTopic() , invalidHfpException);
+                } catch (HfpParser.InvalidHfpTopicException | HfpParser.InvalidHfpPayloadException  | PassengerCountParser.InvalidAPCPayloadException invalidDataException) {
+                    log.warn("Failed to parse HFP data, mqtt topic " + raw.getTopic(), invalidDataException);
                     //Ack messages with invalid data so they don't fill Pulsar backlog
                     ack(received.getMessageId());
                 }
@@ -93,7 +93,7 @@ public class MessageHandler implements IMessageHandler {
         final String rawTopic = raw.getTopic();
         final byte[] rawPayload = raw.getPayload().toByteArray();
         final APCJson apcJson = passengerCountParser.parseJson(rawPayload);
-        PassengerCount.Payload payload = PassengerCountParser.newInstance().parsePayload(apcJson);
+        PassengerCount.Payload payload = passengerCountParser.parsePayload(apcJson);
 
         PassengerCount.Data.Builder builder = PassengerCount.Data.newBuilder();
         builder.setSchemaVersion(builder.getSchemaVersion())
