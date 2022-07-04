@@ -54,7 +54,7 @@ public class MessageHandler implements IMessageHandler {
 
                 try {
                     if ("apc".equals(messageType)) {
-                        PassengerCount.Data converted = parsePassengerCountData(raw);
+                        PassengerCount.Data converted = parsePassengerCountData(raw, timestamp);
                         sendPulsarMessage(received.getMessageId(), converted, timestamp, TransitdataProperties.ProtobufSchema.PassengerCount.toString(), producer);
                     } else if ("hfp".equals(messageType)) {
                         Hfp.Data converted = parseHfpData(raw, timestamp);
@@ -89,7 +89,7 @@ public class MessageHandler implements IMessageHandler {
     }
 
 
-    private PassengerCount.Data parsePassengerCountData(Mqtt.RawMessage raw) throws IOException, PassengerCountParser.InvalidAPCPayloadException {
+    private PassengerCount.Data parsePassengerCountData(Mqtt.RawMessage raw, long timestamp) throws IOException, PassengerCountParser.InvalidAPCPayloadException {
         final String rawTopic = raw.getTopic();
         final byte[] rawPayload = raw.getPayload().toByteArray();
         final APCJson apcJson = passengerCountParser.parseJson(rawPayload);
@@ -98,12 +98,13 @@ public class MessageHandler implements IMessageHandler {
         PassengerCount.Data.Builder builder = PassengerCount.Data.newBuilder();
         builder.setSchemaVersion(builder.getSchemaVersion())
                 .setPayload(payload)
-                .setTopic(rawTopic);
+                .setTopic(rawTopic)
+                .setReceivedAt(timestamp);
 
         return builder.build();
     }
 
-    private Hfp.Data parseHfpData( Mqtt.RawMessage raw, long timestamp) throws IOException, HfpParser.InvalidHfpPayloadException, HfpParser.InvalidHfpTopicException {
+    private Hfp.Data parseHfpData(Mqtt.RawMessage raw, long timestamp) throws IOException, HfpParser.InvalidHfpPayloadException, HfpParser.InvalidHfpTopicException {
         final String rawTopic = raw.getTopic();
         final byte[] rawPayload = raw.getPayload().toByteArray();
         final HfpJson jsonPayload = hfpParser.parseJson(rawPayload);
