@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.Optional;
 
 public class MessageHandler implements IMessageHandler {
     private static final Logger log = LoggerFactory.getLogger(MessageHandler.class);
@@ -54,8 +55,8 @@ public class MessageHandler implements IMessageHandler {
 
                 try {
                     if ("apc".equals(messageType)) {
-                        PassengerCount.Data converted = parsePassengerCountData(raw, timestamp);
-                        sendPulsarMessage(received.getMessageId(), converted, timestamp, TransitdataProperties.ProtobufSchema.PassengerCount.toString(), producer);
+                        Optional<PassengerCount.Data> converted = parsePassengerCountData(raw, timestamp);
+                        converted.ifPresent(passengerCountData -> sendPulsarMessage(received.getMessageId(), passengerCountData, timestamp, TransitdataProperties.ProtobufSchema.PassengerCount.toString(), producer));
                     } else if ("hfp".equals(messageType)) {
                         Hfp.Data converted = parseHfpData(raw, timestamp);
                         sendPulsarMessage(received.getMessageId(), converted, timestamp, TransitdataProperties.ProtobufSchema.HfpData.toString(), producer);
@@ -89,11 +90,15 @@ public class MessageHandler implements IMessageHandler {
     }
 
 
-    private PassengerCount.Data parsePassengerCountData(Mqtt.RawMessage raw, long timestamp) throws IOException, PassengerCountParser.InvalidAPCPayloadException {
+    private Optional<PassengerCount.Data> parsePassengerCountData(Mqtt.RawMessage raw, long timestamp) throws IOException, PassengerCountParser.InvalidAPCPayloadException {
         final String rawTopic = raw.getTopic();
         final byte[] rawPayload = raw.getPayload().toByteArray();
         final APCJson apcJson = passengerCountParser.parseJson(rawPayload);
-        PassengerCount.Payload payload = passengerCountParser.parsePayload(apcJson);
+        Optional<PassengerCount.Payload> maybePayload = passengerCountParser.parsePayload(apcJson);
+        if (maybePayload.isEmpty()) {
+            log.warn("Failed to parse APC JSON to Protobuf: {}", raw.getPayload().toStringUtf8());
+            return Optional.empty();
+        }
 
         PassengerCount.Data.Builder builder = PassengerCount.Data.newBuilder();
         builder.setSchemaVersion(builder.getSchemaVersion())
@@ -101,7 +106,7 @@ public class MessageHandler implements IMessageHandler {
                 .setTopic(rawTopic)
                 .setReceivedAt(timestamp);
 
-        return builder.build();
+        return Optional.of(builder.build());
     }
 
     private Hfp.Data parseHfpData(Mqtt.RawMessage raw, long timestamp) throws IOException, HfpParser.InvalidHfpPayloadException, HfpParser.InvalidHfpTopicException {
