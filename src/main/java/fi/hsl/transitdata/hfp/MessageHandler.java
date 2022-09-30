@@ -102,7 +102,7 @@ public class MessageHandler implements IMessageHandler {
 
         PassengerCount.Data.Builder builder = PassengerCount.Data.newBuilder();
         builder.setSchemaVersion(builder.getSchemaVersion())
-                .setPayload(payload)
+                .setPayload(maybePayload.get())
                 .setTopic(rawTopic)
                 .setReceivedAt(timestamp);
 
