@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class MessageHandler implements IMessageHandler {
     private static final Logger log = LoggerFactory.getLogger(MessageHandler.class);
@@ -33,6 +34,16 @@ public class MessageHandler implements IMessageHandler {
     private final PassengerCountParser passengerCountParser = PassengerCountParser.newInstance();
 
     private final String messageType;
+
+    private final AtomicLong lastAck = new AtomicLong(System.nanoTime());
+
+    /**
+     *
+     * @return Time when last message was acked (time is System.nanoTime())
+     */
+    public long getLastAckTime() {
+        return lastAck.get();
+    }
 
     public MessageHandler(PulsarApplicationContext context, String messageType) {
         this.consumer = context.getConsumer();
@@ -85,7 +96,7 @@ public class MessageHandler implements IMessageHandler {
                     log.error("Failed to ack Pulsar message", throwable);
                     return null;
                 })
-                .thenRun(() -> {});
+                .thenRun(() -> lastAck.set(System.nanoTime()));
     }
 
 
