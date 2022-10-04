@@ -1,6 +1,4 @@
-[![Build Status](https://travis-ci.org/HSLdevcom/transitdata-hfp-parser.svg?branch=master)](https://travis-ci.org/HSLdevcom/transitdata-hfp-parser)
-
-# Transitdata-hfp-parser
+# Transitdata-hfp-parser [![Test and create Docker image](https://github.com/HSLdevcom/transitdata-hfp-parser/actions/workflows/test-and-build.yml/badge.svg)](https://github.com/HSLdevcom/transitdata-hfp-parser/actions/workflows/test-and-build.yml)
 
 ## Description
 
