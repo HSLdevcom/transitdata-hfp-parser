@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class MessageHandler implements IMessageHandler {
     private static final Logger log = LoggerFactory.getLogger(MessageHandler.class);
@@ -100,11 +101,16 @@ public class MessageHandler implements IMessageHandler {
             return Optional.empty();
         }
 
+        //Create randomized load ratio (+-5 percentage points) that should be used when showing passenger count publicly
+        final double loadRatio = maybePayload.get().getVehicleCounts().getVehicleLoadRatio();
+        final double randomizedLoadRatio = Math.max(loadRatio + ThreadLocalRandom.current().nextDouble(-0.05, 0.05), 0);
+
         PassengerCount.Data.Builder builder = PassengerCount.Data.newBuilder();
         builder.setSchemaVersion(builder.getSchemaVersion())
                 .setPayload(maybePayload.get())
                 .setTopic(rawTopic)
-                .setReceivedAt(timestamp);
+                .setReceivedAt(timestamp)
+                .setRandomizedVehicleLoadRatio(randomizedLoadRatio);
 
         return Optional.of(builder.build());
     }
