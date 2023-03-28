@@ -36,7 +36,9 @@ public class MessageHandler implements IMessageHandler {
 
     private final String messageType;
 
-    public MessageHandler(PulsarApplicationContext context, String messageType) {
+    private final double apcLoadRatioNoise;
+
+    public MessageHandler(PulsarApplicationContext context, String messageType, double apcLoadRatioNoise) {
         this.consumer = context.getConsumer();
         this.producer = context.getSingleProducer();
 
@@ -45,6 +47,7 @@ public class MessageHandler implements IMessageHandler {
         }
 
         this.messageType = messageType;
+        this.apcLoadRatioNoise = apcLoadRatioNoise;
     }
 
     public void handleMessage(Message received) {
@@ -101,9 +104,10 @@ public class MessageHandler implements IMessageHandler {
             return Optional.empty();
         }
 
-        //Create randomized load ratio (+-5 percentage points) that should be used when showing passenger count publicly
+        //Create randomized load ratio that should be used when showing passenger count publicly to preserve passenger privacy
         final double loadRatio = maybePayload.get().getVehicleCounts().getVehicleLoadRatio();
-        final double randomizedLoadRatio = Math.max(loadRatio + ThreadLocalRandom.current().nextDouble(-0.05, 0.05), 0);
+        final double randomizedLoadRatio = Math.max(loadRatio + ThreadLocalRandom.current().nextDouble(-apcLoadRatioNoise, apcLoadRatioNoise), 0);
+        //Note that load ratio is not capped at 1.0 because the vehicle can have more passengers than its designed capacity
 
         PassengerCount.Data.Builder builder = PassengerCount.Data.newBuilder();
         builder.setSchemaVersion(builder.getSchemaVersion())

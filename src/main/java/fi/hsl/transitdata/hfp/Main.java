@@ -16,7 +16,7 @@ public class Main {
 
             PulsarApplicationContext context = app.getContext();
 
-            MessageHandler router = new MessageHandler(context, config.getString("application.messageType"));
+            MessageHandler router = new MessageHandler(context, config.getString("application.messageType"), config.getDouble("application.apcLoadRatioNoise"));
 
             log.info("Start handling the messages");
             app.launchWithHandler(router);
