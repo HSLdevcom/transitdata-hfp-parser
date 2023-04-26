@@ -2,7 +2,7 @@
 
 ## Description
 
-Application for parsing HFP Messages from MQTT raw messages. Messages are read
+Application for parsing HFP messages or APC messages from MQTT raw messages. Messages are read
 from one Pulsar topic and the output is written to another Pulsar topic.
 
 ## Building
@@ -22,12 +22,10 @@ This project depends on [transitdata-common](https://github.com/HSLdevcom/transi
 
 ## Running
 
-Requirements:
-- Local Pulsar Cluster
-  - By default uses localhost, override host in PULSAR_HOST if needed.
-    - Tip: f.ex if running inside Docker in OSX set `PULSAR_HOST=host.docker.internal` to connect to the parent machine
-  - You can use [this script](https://github.com/HSLdevcom/transitdata/blob/master/bin/pulsar/pulsar-up.sh) to launch it as Docker container
+### Dependencies
 
-Launch Docker container with
+* Pulsar
 
-```docker-compose -f compose-config-file.yml up <service-name>```   
+### Environment variables
+
+* `MESSAGE_TYPE`: the type of messages to parse, either `hfp` for HFP messages or `apc` for APC messages
