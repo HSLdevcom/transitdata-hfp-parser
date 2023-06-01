@@ -7,7 +7,7 @@ import fi.hsl.common.hfp.HfpParser;
 import fi.hsl.common.hfp.proto.Hfp;
 import fi.hsl.common.mqtt.proto.Mqtt;
 import fi.hsl.common.passengercount.PassengerCountParser;
-import fi.hsl.common.passengercount.json.APCJson;
+import fi.hsl.common.passengercount.json.ApcJson;
 import fi.hsl.common.passengercount.proto.PassengerCount;
 import fi.hsl.common.pulsar.IMessageHandler;
 import fi.hsl.common.pulsar.PulsarApplicationContext;
@@ -90,10 +90,11 @@ public class MessageHandler implements IMessageHandler {
     }
 
 
-    private Optional<PassengerCount.Data> parsePassengerCountData(Mqtt.RawMessage raw, long timestamp) throws IOException, PassengerCountParser.InvalidAPCPayloadException {
+    private Optional<PassengerCount.Data> parsePassengerCountData(Mqtt.RawMessage raw, long timestamp) throws IOException, PassengerCountParser.InvalidAPCPayloadException, PassengerCountParser.InvalidAPCTopicException {
         final String rawTopic = raw.getTopic();
         final byte[] rawPayload = raw.getPayload().toByteArray();
-        final APCJson apcJson = passengerCountParser.parseJson(rawPayload);
+        final ApcJson apcJson = passengerCountParser.parseJson(rawPayload);
+        PassengerCount.Topic topic = passengerCountParser.parseTopic(rawTopic, timestamp);
         Optional<PassengerCount.Payload> maybePayload = passengerCountParser.parsePayload(apcJson);
         if (maybePayload.isEmpty()) {
             log.warn("Failed to parse APC JSON to Protobuf: {}", raw.getPayload().toStringUtf8());
@@ -103,7 +104,7 @@ public class MessageHandler implements IMessageHandler {
         PassengerCount.Data.Builder builder = PassengerCount.Data.newBuilder();
         builder.setSchemaVersion(builder.getSchemaVersion())
                 .setPayload(maybePayload.get())
-                .setTopic(rawTopic)
+                .setTopic(topic)
                 .setReceivedAt(timestamp);
 
         return Optional.of(builder.build());
