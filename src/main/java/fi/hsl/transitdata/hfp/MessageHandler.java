@@ -56,7 +56,15 @@ public class MessageHandler implements IMessageHandler {
                 try {
                     if ("apc".equals(messageType)) {
                         Optional<PassengerCount.Data> converted = parsePassengerCountData(raw, timestamp);
-                        converted.ifPresent(passengerCountData -> sendPulsarMessage(received.getMessageId(), passengerCountData, timestamp, TransitdataProperties.ProtobufSchema.PassengerCount.toString(), producer));
+                        converted.ifPresentOrElse(
+                                passengerCountData -> sendPulsarMessage(
+                                        received.getMessageId(),
+                                        passengerCountData,
+                                        timestamp,
+                                        TransitdataProperties.ProtobufSchema.PassengerCount.toString(),
+                                        producer),
+                                () -> ack(received.getMessageId())
+                        );
                     } else if ("hfp".equals(messageType)) {
                         Hfp.Data converted = parseHfpData(raw, timestamp);
                         sendPulsarMessage(received.getMessageId(), converted, timestamp, TransitdataProperties.ProtobufSchema.HfpData.toString(), producer);
