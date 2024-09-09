@@ -115,7 +115,14 @@ public class MessageHandler implements IMessageHandler {
         final byte[] rawPayload = raw.getPayload().toByteArray();
         final HfpJson jsonPayload = hfpParser.parseJson(rawPayload);
         Hfp.Payload payload = HfpParser.parsePayload(jsonPayload);
-        Hfp.Topic topic = HfpParser.parseTopic(rawTopic, timestamp);
+        Hfp.Topic topic;
+        
+        try {
+            topic = HfpParser.parseTopic(rawTopic, timestamp);
+        } catch (Exception x) {
+            log.error("Failed to parse topic: {}. Payload: {}", rawTopic, payload);
+            throw x;
+        }
 
         Hfp.Data.Builder builder = Hfp.Data.newBuilder();
         builder.setSchemaVersion(builder.getSchemaVersion())
