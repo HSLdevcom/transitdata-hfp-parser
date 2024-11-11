@@ -76,6 +76,6 @@ jobs:
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
           name: hsldevcom/transitdata-hfp-parser
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ secrets.TRANSITDATA_DOCKERHUB_USER }}
+          password: ${{ secrets.TRANSITDATA_DOCKERHUB_TOKEN }}
           tags: aks-dev
