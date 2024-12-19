@@ -59,4 +59,4 @@ jobs:
           name: hsldevcom/transitdata-hfp-parser
           username: ${{ secrets.TRANSITDATA_DOCKERHUB_USER }}
           password: ${{ secrets.TRANSITDATA_DOCKERHUB_TOKEN }}
-          tag_semver: true
+          tag_names: true
