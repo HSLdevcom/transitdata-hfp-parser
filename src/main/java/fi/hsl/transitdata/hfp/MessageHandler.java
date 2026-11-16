@@ -1,6 +1,5 @@
 package fi.hsl.transitdata.hfp;
 
-
 import com.google.protobuf.GeneratedMessageV3;
 import fi.hsl.common.hfp.HfpJson;
 import fi.hsl.common.hfp.HfpParser;
@@ -9,6 +8,7 @@ import fi.hsl.common.mqtt.proto.Mqtt;
 import fi.hsl.common.passengercount.PassengerCountParser;
 import fi.hsl.common.passengercount.json.ApcJson;
 import fi.hsl.common.passengercount.proto.PassengerCount;
+import fi.hsl.common.metrics.PipelineMetrics;
 import fi.hsl.common.pulsar.IMessageHandler;
 import fi.hsl.common.pulsar.PulsarApplicationContext;
 import fi.hsl.common.transitdata.TransitdataProperties;
@@ -54,14 +54,22 @@ public class MessageHandler implements IMessageHandler {
                 final Mqtt.RawMessage raw = Mqtt.RawMessage.parseFrom(data);
 
                 try {
+                    final long sourceTimestamp = PipelineMetrics.resolveSourceTimestampMs(received);
                     if ("apc".equals(messageType)) {
                         Optional<PassengerCount.Data> converted = parsePassengerCountData(raw, timestamp);
-                        converted.ifPresent(passengerCountData -> sendPulsarMessage(received.getMessageId(), passengerCountData, timestamp, TransitdataProperties.ProtobufSchema.PassengerCount.toString(), producer));
+                        converted.ifPresent(passengerCountData -> {
+                            sendPulsarMessage(received.getMessageId(), passengerCountData, timestamp,
+                                    TransitdataProperties.ProtobufSchema.PassengerCount.toString(), producer,
+                                    sourceTimestamp);
+                            PipelineMetrics.observeLatencyFromSource("apc", received);
+                        });
                     } else if ("hfp".equals(messageType)) {
                         Hfp.Data converted = parseHfpData(raw, timestamp);
-                        sendPulsarMessage(received.getMessageId(), converted, timestamp, TransitdataProperties.ProtobufSchema.HfpData.toString(), producer);
+                        sendPulsarMessage(received.getMessageId(), converted, timestamp,
+                                TransitdataProperties.ProtobufSchema.HfpData.toString(), producer, sourceTimestamp);
                     }
-                } catch (HfpParser.InvalidHfpTopicException | HfpParser.InvalidHfpPayloadException  | PassengerCountParser.InvalidAPCPayloadException invalidDataException) {
+                } catch (HfpParser.InvalidHfpTopicException | HfpParser.InvalidHfpPayloadException
+                        | PassengerCountParser.InvalidAPCPayloadException invalidDataException) {
                     log.warn("Failed to parse HFP data, mqtt topic " + raw.getTopic(), invalidDataException);
                     //Ack messages with invalid data so they don't fill Pulsar backlog
                     ack(received.getMessageId());
@@ -74,23 +82,24 @@ public class MessageHandler implements IMessageHandler {
             log.error("Exception while handling message", e);
 
             //Print stack trace for null pointer exceptions without message
-            if (e instanceof NullPointerException && (e.getMessage() == null || "null".equals(e.getMessage().toLowerCase(Locale.ROOT).trim()))) {
+            if (e instanceof NullPointerException
+                    && (e.getMessage() == null || "null".equals(e.getMessage().toLowerCase(Locale.ROOT).trim()))) {
                 e.printStackTrace();
             }
         }
     }
 
     private void ack(MessageId received) {
-        consumer.acknowledgeAsync(received)
-                .exceptionally(throwable -> {
-                    log.error("Failed to ack Pulsar message", throwable);
-                    return null;
-                })
-                .thenRun(() -> {});
+        consumer.acknowledgeAsync(received).exceptionally(throwable -> {
+            log.error("Failed to ack Pulsar message", throwable);
+            return null;
+        }).thenRun(() -> {
+        });
     }
 
-
-    private Optional<PassengerCount.Data> parsePassengerCountData(Mqtt.RawMessage raw, long timestamp) throws IOException, PassengerCountParser.InvalidAPCPayloadException, PassengerCountParser.InvalidAPCTopicException {
+    private Optional<PassengerCount.Data> parsePassengerCountData(Mqtt.RawMessage raw, long timestamp)
+            throws IOException, PassengerCountParser.InvalidAPCPayloadException,
+            PassengerCountParser.InvalidAPCTopicException {
         final String rawTopic = raw.getTopic();
         final byte[] rawPayload = raw.getPayload().toByteArray();
         final ApcJson apcJson = passengerCountParser.parseJson(rawPayload);
@@ -102,21 +111,20 @@ public class MessageHandler implements IMessageHandler {
         }
 
         PassengerCount.Data.Builder builder = PassengerCount.Data.newBuilder();
-        builder.setSchemaVersion(builder.getSchemaVersion())
-                .setPayload(maybePayload.get())
-                .setTopic(topic)
+        builder.setSchemaVersion(builder.getSchemaVersion()).setPayload(maybePayload.get()).setTopic(topic)
                 .setReceivedAt(timestamp);
 
         return Optional.of(builder.build());
     }
 
-    private Hfp.Data parseHfpData(Mqtt.RawMessage raw, long timestamp) throws IOException, HfpParser.InvalidHfpPayloadException, HfpParser.InvalidHfpTopicException {
+    private Hfp.Data parseHfpData(Mqtt.RawMessage raw, long timestamp)
+            throws IOException, HfpParser.InvalidHfpPayloadException, HfpParser.InvalidHfpTopicException {
         final String rawTopic = raw.getTopic();
         final byte[] rawPayload = raw.getPayload().toByteArray();
         final HfpJson jsonPayload = hfpParser.parseJson(rawPayload);
         Hfp.Payload payload = HfpParser.parsePayload(jsonPayload);
         Hfp.Topic topic;
-        
+
         try {
             topic = HfpParser.parseTopic(rawTopic, timestamp);
         } catch (Exception x) {
@@ -125,29 +133,25 @@ public class MessageHandler implements IMessageHandler {
         }
 
         Hfp.Data.Builder builder = Hfp.Data.newBuilder();
-        builder.setSchemaVersion(builder.getSchemaVersion())
-                .setPayload(payload)
-                .setTopic(topic);
+        builder.setSchemaVersion(builder.getSchemaVersion()).setPayload(payload).setTopic(topic);
         return builder.build();
     }
 
-    private void sendPulsarMessage(MessageId received, GeneratedMessageV3 message, long timestamp, String protobufSchema, Producer<byte[]> producer) {
+    private void sendPulsarMessage(MessageId received, GeneratedMessageV3 message, long timestamp,
+            String protobufSchema, Producer<byte[]> producer, long sourceTimestamp) {
         producer.newMessage()
-            //.key(dvjId) //TODO think about this
-            .eventTime(timestamp)
-            .property(TransitdataProperties.KEY_PROTOBUF_SCHEMA, protobufSchema)
-            .value(message.toByteArray())
-            .sendAsync()
-            .whenComplete((MessageId id, Throwable t) -> {
-                if (t != null) {
-                    log.error("Failed to send Pulsar message", t);
-                    //Should we abort?
-                }
-                else {
-                    //Does this become a bottleneck? Does pulsar send more messages before we ack the previous one?
-                    //If yes we need to get rid of this
-                    ack(received);
-                }
-            });
+                //.key(dvjId) //TODO think about this
+                .eventTime(timestamp).property(TransitdataProperties.KEY_PROTOBUF_SCHEMA, protobufSchema)
+                .property(TransitdataProperties.KEY_SOURCE_MESSAGE_TIMESTAMP_MS, Long.toString(sourceTimestamp))
+                .value(message.toByteArray()).sendAsync().whenComplete((MessageId id, Throwable t) -> {
+                    if (t != null) {
+                        log.error("Failed to send Pulsar message", t);
+                        //Should we abort?
+                    } else {
+                        //Does this become a bottleneck? Does pulsar send more messages before we ack the previous one?
+                        //If yes we need to get rid of this
+                        ack(received);
+                    }
+                });
     }
 }
